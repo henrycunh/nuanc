@@ -1,9 +1,9 @@
-import { Page } from "@notionhq/client/build/src/api-types";
 import { keys } from "ts-transformer-keys";
+import { Page } from "@notionhq/client/build/src/api-types";
 
 export type Snapshot = Page[]
 
-export type CardChange = {
+export type PageChange = {
     property: string,
     type: string,
     changes: {
@@ -13,9 +13,9 @@ export type CardChange = {
     }
 }
 
-export type CardStatus = {
+export type PageStatus = {
     name: string,
-    changed: CardChange[]
+    changed: PageChange[]
 }
 
 export type NuanceConfiguration = {

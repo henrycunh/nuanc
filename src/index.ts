@@ -1,24 +1,33 @@
 #!/usr/bin/env node
-import { Nuance } from "./core"
-import { renderCardStatusList } from "./view/cli"
+import consola from 'consola'
 import { Command } from 'commander'
-import { onProcessExit } from "./utils/before-exit"
-import { NuanceConfigurationAllowedKeys } from "./@types"
+
+import { Nuance } from './core/index.js'
+import { NuanceConfigurationAllowedKeys } from './@types/index.js'
+import { onProcessExit } from './utils/before-exit.js'
+import { renderPageStatusList } from './view/cli.js'
 
 const program = new Command()
 Nuance.loadConfiguration()
 
 program
+    .option('-s, --silent', 'Hides any animation or aiding text')
+
+program
     .command('status [database]')
     .option('-p, --pretty', 'Renders the information in a human-ish way')
     .description('Compare the status of a database with the last time it was checked')
-    .action(async (database, options) => {
+    .action(async (database: string, options: any) => {
         const currentDatabase = database || Nuance.configuration["default-db"]
-        const cardStatusList = await Nuance.getCardStatusList(currentDatabase)
+        if (currentDatabase === undefined) {
+            consola.error("You didn't pass a database nor have a default one setted.")
+            return
+        }
+        const pageStatusList = await Nuance.getPageStatusList(currentDatabase)
         if (options.pretty) {
-            renderCardStatusList(cardStatusList)
+            renderPageStatusList(pageStatusList)
         } else {
-            console.log(JSON.stringify(cardStatusList))
+            console.log(JSON.stringify(pageStatusList))
         }
         Nuance.saveLastSnapshot(await Nuance.fetchSnapshot(currentDatabase))
     })
@@ -30,7 +39,7 @@ const configCommand = program
 configCommand
     .command('set <key> <value>')
     .description('Sets the value for a configuration key')
-    .action((key, value) => {
+    .action((key: string, value: string) => {
         Nuance.setConfiguration(key, value)
     })
 
