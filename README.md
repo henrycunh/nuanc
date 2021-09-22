@@ -10,5 +10,7 @@ npm link
 
 ## Usage
 ```bash
+export NOTION_TOKEN={token}
 nuance -h
 ```
+
