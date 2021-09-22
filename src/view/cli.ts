@@ -1,8 +1,9 @@
-import chalk from "chalk";
-import { CardStatus } from "../@types";
+import chalk from 'chalk'
 import consola from 'consola'
 
-export function renderCardStatusList (statusList: CardStatus[]) {
+import { PageStatus } from '../@types/index.js'
+
+export function renderPageStatusList (statusList: PageStatus[]) {
     if (statusList.length === 0) {
         consola.info('No changes were made since last check!')
     } else {

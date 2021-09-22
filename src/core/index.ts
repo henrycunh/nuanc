@@ -1,15 +1,17 @@
+import chalk from 'chalk'
+import consola from 'consola'
 import fs, { PathLike } from 'fs'
 import fse from 'fs-extra'
 import os from 'os'
 import path from 'path'
-import consola from 'consola'
-import { Diff, diff } from 'deep-diff'
 import { Client } from '@notionhq/client'
 import { Database, Page } from '@notionhq/client/build/src/api-types'
-import { Changes } from './changes'
-import { CardStatus, NuanceConfiguration, Snapshot } from '../@types'
-import { NuanceConfigurationAllowedKeys } from '../@types'
-import chalk from 'chalk'
+import DeepDiff from 'deep-diff'
+
+import { Changes } from './changes.js'
+import { loading } from '../utils/loading.js'
+import { NuanceConfigurationAllowedKeys } from '../@types/index.js'
+import { PageStatus, NuanceConfiguration, Snapshot } from '../@types/index.js'
 
 export class Nuance {
     static notion = new Client({
@@ -46,27 +48,44 @@ export class Nuance {
         }
     }
 
-    static getCardChanges(snapshot: Snapshot, lastSnapshot: Snapshot) {
-        return diff(lastSnapshot, snapshot)
+    static getPageChanges(snapshot: Snapshot, lastSnapshot: Snapshot) {
+        return DeepDiff.diff(lastSnapshot, snapshot)
     }
 
-
-    private static parseCardStatus(diffList: Diff<any, Snapshot>[]) {
-        return (value: Page, index: number) => {
+    private static parsePageStatus(diffList: DeepDiff.Diff<any, Snapshot>[]) {
+        return async (value: Page, index: number) => {
             const pageChangeList = diffList.filter(({ path }) => {
                 const [pageIndex] = path || []
                 return pageIndex === index
             })
             const pageName = value.properties.Name.type === 'title' ? value.properties.Name.title.pop()?.plain_text : '' 
-            return { name: pageName as string, changed: Changes.parse(pageChangeList) } 
+            return { name: pageName as string, changed: await Changes.parse(pageChangeList) } 
         }
     }
     
-    static async getCardStatusList(databaseName: string): Promise<CardStatus[]> {
-        const cardList = await Nuance.fetchSnapshot(databaseName)
-        const cardChangeList = Nuance.getCardChanges(cardList, Nuance.fetchLastSnapshot())
-        return cardList.map(Nuance.parseCardStatus(cardChangeList || [])).filter(card => card.changed.length)
+    static async getPageStatusList(databaseName: string): Promise<PageStatus[]> {
+        const pageList = await loading(
+            Nuance.fetchSnapshot(databaseName),
+            'Loading snapshot'
+        ) as Snapshot
+        const pageChangeList = Nuance.getPageChanges(pageList, Nuance.fetchLastSnapshot())
+        const pageStatusList = await Promise.all(
+            pageList.map(Nuance.parsePageStatus(pageChangeList || []))
+        )
+        return pageStatusList.filter((page) => page.changed.length)
     }   
+
+    static async getPageTitle(pageId: string) {
+        const page = await Nuance.notion.pages.retrieve({ page_id: pageId })
+        const { properties } = page
+        for (const propertyName in properties) {
+            const property = properties[propertyName] 
+            if (property.type === 'title') {
+                return property.title.pop()?.plain_text
+            }
+        }
+        return null
+    }
 
     /* Configuration */
 

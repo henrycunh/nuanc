@@ -2,11 +2,11 @@
   "name": "nuance",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "exports": "./build/index.js",
   "scripts": {
     "prepare": "ttsc",
     "build": "ttsc",
-    "start": "ts-node -C ttypescript src/index.ts",
+    "start": "npm run build && node build/index",
     "package": "pkg . --targets node14-macos-x64 --output nuance"
   },
   "keywords": [],
@@ -36,10 +36,16 @@
   "dependencies": {
     "@notionhq/client": "^0.3.2",
     "chalk": "^4.1.2",
+    "cli-spinners": "^2.6.0",
     "commander": "^8.2.0",
     "consola": "^2.15.3",
     "deep-diff": "^1.0.2",
     "fs-extra": "^10.0.0",
+    "ora": "^6.0.1",
     "ts-transformer-keys": "^0.4.3"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
   }
 }
