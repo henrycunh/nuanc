@@ -6,7 +6,7 @@
   "scripts": {
     "prepare": "ttsc",
     "build": "ttsc",
-    "start": "npm run build && node build/index",
+    "start": "npm run build && node build/bin",
     "package": "pkg . --targets node14-macos-x64 --output nuance"
   },
   "keywords": [],

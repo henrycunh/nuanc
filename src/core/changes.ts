@@ -35,7 +35,8 @@ export class Changes {
             'select': Changes.handleSelectProperty,
             'people': Changes.handlePeopleProperty,
             'url': Changes.handleUrlProperty,
-            'relation': Changes.handleRelationProperty
+            'relation': Changes.handleRelationProperty,
+            // 'checkbox': Changes.handleCheckboxProperty,
         })
         const defaultHandler = (property: PropertyChange) => property
         const structuredChanges = await (handlerMap[modifiedProperty.type] || defaultHandler)(modifiedProperty.changes)
@@ -93,7 +94,6 @@ export class Changes {
         const idChange: any = changeList.find(change => change.path?.pop() === 'id')
         if (idChange) {
             const [oldPageTitle, newPageTitle] = await Promise.all([
-                Nuance.getPageTitle(idChange.lhs),
                 Nuance.getPageTitle(idChange.rhs)
             ])
             change.edited = {
@@ -115,4 +115,10 @@ export class Changes {
 
         return change
     }
+
+    private static handleCheckboxProperty(changeList: Diff<any, Snapshot>[]) {
+        const [diff]: any = changeList
+        return { edited: { old: { value: diff.lhs }, new: { value: diff.rhs } } }
+    }
+
 }
