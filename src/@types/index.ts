@@ -22,4 +22,8 @@ export type NuanceConfiguration = {
     'default-db'?: string 
 }
 
+export type NuanceCLIOptions = {
+    silent?: boolean
+}
+
 export const NuanceConfigurationAllowedKeys = keys<NuanceConfiguration>()
