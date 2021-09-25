@@ -1,4 +1,4 @@
-# Nuance
+# Nuanc
 A notion utility package focused on tracking changes, it also comes with a CLI!
 
 ## Installation
