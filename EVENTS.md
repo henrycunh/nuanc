@@ -1,7 +1,7 @@
 ## Events supported
 - Added pages  **`PageEvent.added[]`**
 - Removed pages  **`PageEvent.deleted[]`**
-- Edited page properties  **`PageEvent.edited`**
+- Changed page properties  **`PageEvent.changed`**
 
 ## Event body expected for drivers
 ```json
