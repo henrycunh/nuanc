@@ -6,7 +6,7 @@ import os from 'os'
 import path from 'path'
 import { Client } from '@notionhq/client'
 import { Database, Page } from '@notionhq/client/build/src/api-types'
-import DeepDiff from 'deep-diff'
+import DeepDiff, { diff } from 'deep-diff'
 
 import { Changes } from './changes.js'
 import { loading } from '../utils/loading.js'
@@ -61,7 +61,9 @@ export class Nuance {
                 return pageIndex === index
             })
             const pageName = await this.getPageTitle(value) 
-            return { name: pageName as string, changed: await Changes.parse(pageChangeList) } 
+            const pageId = await this.getPageId(value)
+    
+            return { name: pageName as string, changed: await Changes.parse(pageChangeList), id:pageId} 
         }
     }
     
@@ -143,6 +145,11 @@ export class Nuance {
         return null
     }
 
+    static async getPageId(page: Page){
+        const pageContent = page
+        return(pageContent.id)
+    }
+    
     private static sortPageList(pageList: Snapshot): Snapshot {
         return [...pageList].sort((pageA, pageB) => pageA.id > pageB.id ? -1 : 1)
     }

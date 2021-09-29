@@ -50,7 +50,7 @@ export class Changes {
 
     private static handleUrlProperty(changeList: Diff<any, Snapshot>[]) {
         const [diff]: any = changeList
-        return { edited: { old: { value: diff.lhs }, new: { value: diff.rhs } } }
+        return { edited: { old: { value: (diff || {}).lhs }, new: { value: diff.rhs } } }
     }
 
     private static handleTitleProperty(changeList: Diff<any, Snapshot>[]) {
@@ -59,12 +59,12 @@ export class Changes {
     }
 
     private static handleSelectProperty(changeList: Diff<any, Snapshot>[]) {
-        const nameChange: any = changeList.find(change => change.path?.pop() === 'name')
+        const nameChange: any = changeList.find(change => ["name", "select"].includes(change.path?.pop()))
         const colorChange: any = changeList.find(change => change.path?.pop() === 'color')
         return { 
             edited: {
-                old: { value: nameChange.lhs, color: colorChange.lhs },
-                new: { value: nameChange.rhs, color: colorChange.rhs }
+                old: { value: nameChange.lhs},
+                new: { value: nameChange.rhs}
             }
         }
     }

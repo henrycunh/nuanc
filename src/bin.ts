@@ -6,6 +6,7 @@ import { Nuance } from './core/index.js'
 import { NuanceCLIOptions, NuanceConfigurationAllowedKeys } from './@types/index.js'
 import { onProcessExit } from './utils/before-exit.js'
 import { renderPageStatusList } from './view/cli.js'
+import { DirectusD } from './drivers/directus_driver.js'
 
 const program = new Command()
 Nuance.loadConfiguration()
@@ -25,6 +26,7 @@ program
         if (options.pretty) {
             renderPageStatusList(pageStatusList.changed)
         } else {
+            DirectusD.updateItem(pageStatusList)
             console.log(JSON.stringify(pageStatusList))
         }
         Nuance.saveLastSnapshot(await Nuance.fetchSnapshot(currentDatabase, options))
