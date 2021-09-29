@@ -1,3 +1,8 @@
 {
-    "typescript.preferences.importModuleSpecifierEnding": "js"
+    "typescript.preferences.importModuleSpecifierEnding": "js",
+    "editor.codeActionsOnSave": {
+        "source.fixAll": false
+
+    },
+    "editor.formatOnSave": false
 }
