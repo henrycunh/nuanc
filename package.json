@@ -1,6 +1,6 @@
 {
   "name": "@nuanc/core",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A notion utility package focused on tracking changes, it also comes with a CLI!",
   "exports": "./build/index.js",
   "types": "build/index.d.ts",
@@ -8,7 +8,8 @@
     "prepare": "ttsc",
     "build": "ttsc",
     "start": "npm run build && node build/bin",
-    "package": "pkg . --targets node14-macos-x64 --output nuance"
+    "package": "pkg . --targets node14-macos-x64 --output nuance",
+    "publish": "npm publish --access public"
   },
   "keywords": [],
   "author": "Henrique Cunha",
@@ -51,10 +52,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/henrycunh/nuance.git"
+    "url": "git+https://github.com/henrycunh/nuanc.git"
   },
   "bugs": {
-    "url": "https://github.com/henrycunh/nuance/issues"
+    "url": "https://github.com/henrycunh/nuanc/issues"
   },
-  "homepage": "https://github.com/henrycunh/nuance#readme"
+  "homepage": "https://github.com/henrycunh/nuanc#readme"
 }

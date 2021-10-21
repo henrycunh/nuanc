@@ -14,6 +14,7 @@ program
 .command('status [database]')
     .option('-s, --silent', 'Hides any animation or aiding text')
     .option('-p, --pretty', 'Renders the information in a human-ish way')
+    .option('-u, --update', 'Update last snapshot, true by default', true)
     .description('Compare the status of a database with the last time it was checked')
     .action(async (database: string, options: NuancOptions & { pretty?: boolean }) => {
         const currentDatabase = database || Nuanc.configuration["default-db"]
@@ -27,8 +28,10 @@ program
         } else {
             console.log(JSON.stringify(pageStatusList))
         }
-        const snapshot = await Nuanc.fetchSnapshot(currentDatabase, options)
-        await Nuanc.saveSnapshot(snapshot, currentDatabase)
+        if (options.update) {
+            const snapshot = await Nuanc.fetchSnapshot(currentDatabase, options)
+            await Nuanc.saveSnapshot(snapshot, currentDatabase)
+        }
     })
 
 program

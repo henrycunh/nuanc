@@ -30,6 +30,7 @@ export type NuancStorageDriver = keyof NuancAvailableStorageDrivers
 
 export type NuancOptions = {
     silent?: boolean
+    update?: boolean
     persistSnapshot?: boolean
     saveEvents?: boolean
 }
