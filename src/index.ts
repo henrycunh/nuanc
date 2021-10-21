@@ -1,3 +1,3 @@
-import { Nuance } from "./core/index.js"
+import { Nuanc } from "./core/index.js"
 
-export default Nuance
+export default Nuanc
