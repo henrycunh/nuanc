@@ -5,157 +5,239 @@ import fse from 'fs-extra'
 import os from 'os'
 import path from 'path'
 import { Client } from '@notionhq/client'
-import { Database, Page } from '@notionhq/client/build/src/api-types'
 import DeepDiff from 'deep-diff'
 
 import { Changes } from './changes.js'
 import { loading } from '../utils/loading.js'
-import { NuanceCLIOptions, NuanceConfigurationAllowedKeys } from '../@types/index.js'
-import { NuanceConfiguration, Snapshot } from '../@types/index.js'
+import { NuancOptions, NuancConfigurationAllowedKeys, NuancPageEvent, NuancPageEventHandler, PageStatus, Database, Page, NuancAvailableStorageDrivers, NuancStorageDriver } from '../@types/index.js'
+import { NuancConfiguration, Snapshot } from '../@types/index.js'
+import { NuancLocalDriver } from '../data/local.js'
+import { NuancBaseDataDriver } from '../data/base-driver.js'
 
-export class Nuance {
+// TODO: document the class and methods 
+export class Nuanc {
     static notion = new Client({
         auth: process.env.NOTION_TOKEN
     })
-    static LAST_SNAPSHOT_PATH: string = path.join(os.homedir(), '.nuance', 'data', 'last-snapshot.json')
 
-    static async fetchDatabaseList (query = '') {
-        const { results } = await Nuance.notion.search({ query })
+    /* Storage */
+    private static storageDriverMap: NuancAvailableStorageDrivers = {
+        'local': NuancLocalDriver
+    }
+    private static storage: NuancBaseDataDriver = new Nuanc.storageDriverMap.local()
+    static useStorage (storageDriver: NuancStorageDriver, options: any) {
+        Nuanc.storage = new Nuanc.storageDriverMap[storageDriver](...options)
+    }
+
+    static async saveSnapshot (snapshot: Snapshot, database: string) {
+        await Nuanc.storage.saveSnapshot(snapshot, database)
+    }
+
+    static async fetchLastSnapshot (database: string) {
+        return Nuanc.storage.loadLastSnapshot(database)
+    }
+
+    static async saveEvent (event: PageStatus, database: string) {
+        await Nuanc.storage.saveEvent(event, database)
+    }
+
+    static async fetchDatabaseList (query = ''): Promise<any[]> {
+        const { results } = await Nuanc.notion.search({ query })
         const databaseList = results
-            .filter((result) => result.object === 'database')
-            .map((result) => ({
+            .filter((result) => result.object === 'database') as Database[]
+        const titledDatabaseList = databaseList.
+            map((result) => ({
                 ...result,
                 title: (result as Database).title[0].plain_text
             }))
-        return databaseList
+        return titledDatabaseList
     }
 
-    static async fetchSnapshot(databaseName: string, options?: NuanceCLIOptions): Promise<Snapshot> {
+    static async fetchSnapshot(databaseName: string, options?: NuancOptions): Promise<Snapshot> {
+        if (!Boolean(databaseName)) {
+            throw new Error('No notion database informed.')
+        }
         return loading(async () => {
-            const [tasksDB] = await Nuance.fetchDatabaseList(databaseName)
-            const snapshot = await Nuance.notion.databases.query({ database_id: tasksDB.id })
-            return snapshot.results
+            const [tasksDB] = await Nuanc.fetchDatabaseList(databaseName)
+            const snapshot = await Nuanc.notion.databases.query({ database_id: tasksDB.id })
+            return await Promise.all(
+                snapshot.results.map(async (page) => {
+                    const pageData = await Nuanc.notion.pages.retrieve({ page_id: page.id })
+                    const pageName = String(await Nuanc.getPageTitle({ ...pageData, name: '' }, options))
+                    return { ...pageData, name: pageName }
+                })
+            )
         }, 'Loading snapshot', options?.silent)
     }
 
-    static saveLastSnapshot (snapshot: Snapshot) {
-        fse.outputFileSync(Nuance.LAST_SNAPSHOT_PATH, JSON.stringify(snapshot))
-    }
-
-    static fetchLastSnapshot (): Snapshot {
-        if (fs.existsSync(Nuance.LAST_SNAPSHOT_PATH)) {
-            return JSON.parse(fs.readFileSync(Nuance.LAST_SNAPSHOT_PATH, 'utf-8'))
-        } else {
-            return []
-        }
-    }
 
     static getPageChanges(snapshot: Snapshot, lastSnapshot: Snapshot) {
         return DeepDiff.diff(lastSnapshot, snapshot)
     }
 
-    private static parsePageStatus(diffList: DeepDiff.Diff<any, Snapshot>[]) {
-        return async (value: Page, index: number) => {
+    private static parsePageStatus(diffList: DeepDiff.Diff<any, Snapshot>[], options?: NuancOptions) {
+        return async (page: Page, index: number) => {
             const pageChangeList = diffList.filter(({ path }) => {
                 const [pageIndex] = path || []
                 return pageIndex === index
             })
-            const pageName = await this.getPageTitle(value) 
-            return { name: pageName as string, changed: await Changes.parse(pageChangeList) } 
+            const pageName = await Nuanc.getPageTitle(page, options)
+            const changed = await Changes.parse(pageChangeList)
+            const pageStatus: PageStatus = { ...page, name: pageName as string }
+            if (changed.length) {
+                pageStatus.status = 'changed'
+                pageStatus.changed = changed
+            }
+            return pageStatus
         }
     }
     
-    static async getPageStatusList(databaseName: string, options?: NuanceCLIOptions) {
-        let snapshot = await Nuance.fetchSnapshot(databaseName, options)
-        let lastSnapshot = Nuance.fetchLastSnapshot()
-        let pageChangeList = Nuance.getPageChanges(snapshot, lastSnapshot)
-
-        const addedOrRemovedElements = Nuance.getAddedOrRemovedPages(snapshot, lastSnapshot)
-        if (addedOrRemovedElements !== null) {
-            // Removes the added/deleted elements from the 
-            // current/last snapshot to enable comparison of
-            // the property changes without new items or
-            // the gap of deletion messing up the indexes
-            if ('added' in addedOrRemovedElements) {
-                snapshot = snapshot?.filter(page => {
-                    const elementList = addedOrRemovedElements.added
-                    if (elementList !== undefined) {
-                        return !elementList.some(element => page.id === element.id)
-                    }
-                })
-            } else if ('removed' in addedOrRemovedElements) {
-                lastSnapshot = lastSnapshot?.filter(page => {
-                    const elementList = addedOrRemovedElements.removed
-                    if (elementList !== undefined) {
-                        return !elementList.some(element => page.id === element.id)
-                    }
-                })
-            }
-        }
-        pageChangeList = Nuance.getPageChanges(
-            Nuance.sortPageList(snapshot), 
-            Nuance.sortPageList(lastSnapshot)
+    static async getPageStatusList(databaseName: string, options?: NuancOptions): Promise<PageStatus[]> {
+        let lastSnapshot = await Nuanc.fetchLastSnapshot(databaseName)
+        let snapshot = await Nuanc.fetchSnapshot(databaseName, options)
+        let pageChangeList = Nuanc.getPageChanges(snapshot, lastSnapshot)
+        const { added, removed, currentSnapshotIntersection, lastSnapshotIntersection } = await Nuanc.getAddedOrRemovedPages(snapshot, lastSnapshot)
+        
+        pageChangeList = Nuanc.getPageChanges(
+            currentSnapshotIntersection, 
+            lastSnapshotIntersection
         )
         
-        const pageStatusList = await Promise.all(
-            snapshot.map(Nuance.parsePageStatus(pageChangeList || []))
-        )
+        const changedPageList = (
+            await Promise.all(
+                snapshot.map(Nuanc.parsePageStatus(pageChangeList || [], options))
+            )
+        ).filter(page => page.status === 'changed')
 
-        return {
-            ...(addedOrRemovedElements || {}),
-            changed: pageStatusList.filter((page) => page.changed.length) 
-        } 
+        if (options?.persistSnapshot) {
+            const freshSnapshot = await Nuanc.fetchSnapshot(databaseName, options)
+            await Nuanc.saveSnapshot(freshSnapshot, databaseName)
+        }
+
+        return [
+            ...added || [],
+            ...removed || [],
+            ...changedPageList 
+        ]
         
     }
 
-    static getAddedOrRemovedPages(currentSnapshot: Snapshot, lastSnapshot: Snapshot): { added?: Page[], removed?: Page[] } | null {
-        // Checks for added elements
-        if (currentSnapshot.length > lastSnapshot.length) {
-            return { 
-                added: currentSnapshot.filter(currentSnapshotPage => 
-                    !lastSnapshot.some(lastSnapshotPage => lastSnapshotPage.id === currentSnapshotPage.id)
+    static async getAddedOrRemovedPages(currentSnapshot: Snapshot, lastSnapshot: Snapshot) {
+        const intersection = currentSnapshot.filter(page => lastSnapshot.some(pageOnLastSnapshot => page.id === pageOnLastSnapshot.id))
+        const added = (await Promise.all(
+            currentSnapshot
+                .filter(page => !intersection.some(intersectionPage => page.id === intersectionPage.id))
+                .map(async (page) => ({ 
+                    ...page, 
+                    status: 'added'
+                }))
+        )) as PageStatus[]
+        const removed = (await Promise.all(
+            lastSnapshot
+                .filter(page => !intersection.some(intersectionPage => page.id === intersectionPage.id))
+                .map(async (page) => ({ 
+                    ...page, 
+                    status: 'removed'
+                }))
+        )) as PageStatus[]
+        const currentSnapshotIntersection = currentSnapshot.filter(page => intersection.some(intersectionPage => page.id === intersectionPage.id))
+        const lastSnapshotIntersection = lastSnapshot.filter(page => intersection.some(intersectionPage => page.id === intersectionPage.id))
+        return { added, removed, currentSnapshotIntersection, lastSnapshotIntersection }
+    }
+
+    static async getPageTitle(page: string | (Page | PageStatus), options?: NuancOptions) {
+        if (typeof page !== 'string') {
+            for (const propertyName in page.properties) {
+                const property = page.properties[propertyName]
+                if (property.type === 'title') {
+                    const title = property.title.pop()?.plain_text
+                    if (title) {
+                        return title
+                    }
+                }
+            }
+        }
+
+        const pageId = typeof page === 'string' ? page : page.id
+        const title = await Nuanc.notion.pages.properties.retrieve({ page_id: pageId, property_id: 'title' })
+        if (title.object === 'list') {
+            const result = title.results.pop()
+            return result?.type === 'title' ? result.title.plain_text : null
+        }
+        return null
+    }
+
+    static async getRelationPropertyPageList(page: Page, options?: NuancOptions): Promise<(Page & { name: string })[]> {
+        for (const propertyName in page.properties) {
+            const property = page.properties[propertyName]
+            if (property.type === 'relation') {
+                return await Promise.all(
+                    property.relation.map(
+                        async (relatedPage) => {
+                            const page = await Nuanc.notion.pages.retrieve({ page_id: relatedPage.id })
+                            // sorry for this shit ass code, i'm too tired
+                            return { ...page, name: (await Nuanc.getPageTitle({ ...page, name: '' }, options)) as string }
+                        }
+                    )
                 )
             }
-        } 
-        // Checks for removed elements 
-        else if (currentSnapshot.length < lastSnapshot.length) {
-            return { 
-                removed: lastSnapshot.filter(lastSnapshotPage => 
-                    !currentSnapshot.some(currentSnapshotPage => lastSnapshotPage.id === currentSnapshotPage.id)
-                ) as Page[]
-            }
-        } 
-        return null
-    }
-
-    static async getPageTitle(page: string | Page) {
-        const pageContent = typeof page === 'string' ? await loading(
-            Nuance.notion.pages.retrieve({ page_id: page }),
-            'Retrieving page ' + page
-        ) : page
-        const { properties } = pageContent
-        for (const propertyName in properties) {
-            const property = properties[propertyName] 
-            if (property.type === 'title') {
-                return property.title.pop()?.plain_text
-            }
         }
-        return null
+        return []
     }
 
     private static sortPageList(pageList: Snapshot): Snapshot {
         return [...pageList].sort((pageA, pageB) => pageA.id > pageB.id ? -1 : 1)
     }
+    
+    /* Event handling */
+    private static handlePageEvent = { 
+        added: [] as NuancPageEventHandler[], 
+        removed: [] as NuancPageEventHandler[], 
+        changed: [] as NuancPageEventHandler[]
+    }
+
+    /**
+     * Adds an event listener for page events that occurr between snapshots
+     * 
+     * @param eventType The type of event you're listening for, could be 
+     * either `added` for added pages, `removed` for removed pages or 
+     * `changed` for pages that had their content changed.
+     * @param handler Function that will handle the event. The event
+     * parameter are as follows for each type of event:
+     * - {@link Page} for the `added` event type
+     * - {@link Page} for the `removed` event type
+     * - {@link PageStatus} for the `changed` event type
+     */
+    static on(eventType: NuancPageEvent, handler: NuancPageEventHandler) {
+        Nuanc.handlePageEvent[eventType].push(handler)
+    }
+
+    static async readEvents(databaseName: string, options?: NuancOptions) {
+        const pageStatusList = await Nuanc.getPageStatusList(databaseName, { ...options, persistSnapshot: true })
+        // i was drunk when i made this, but it's fast!
+        for (const eventType in Nuanc.handlePageEvent) {
+            // events segmented by type of event
+            const pageListByEventType = pageStatusList.filter((page) => page.status === eventType)
+
+            // for all the events of this type
+            await Promise.all(
+                pageListByEventType.map(async (pageEvent) => Promise.all(
+                    // run all the handlers of this type
+                    Nuanc.handlePageEvent[eventType as NuancPageEvent].map((handler) => handler(pageEvent))
+                ))
+            )
+        }
+    }
 
     /* Configuration */
     static CONFIGURATION_PATH: PathLike = path.join(os.homedir(), '.nuance', 'config.json')
-    static configuration: NuanceConfiguration = {}
+    static configuration: NuancConfiguration = {}
 
     static loadConfiguration () {
-        if(fs.existsSync(Nuance.CONFIGURATION_PATH)) {
+        if(fs.existsSync(Nuanc.CONFIGURATION_PATH)) {
             try {
-                const configuration = JSON.parse(fs.readFileSync(Nuance.CONFIGURATION_PATH, 'utf-8')) 
-                Nuance.configuration = configuration
+                const configuration = JSON.parse(fs.readFileSync(Nuanc.CONFIGURATION_PATH, 'utf-8')) 
+                Nuanc.configuration = configuration
             } catch (e) {
                 consola.error(e)
             }
@@ -163,11 +245,11 @@ export class Nuance {
     }
 
     static saveConfiguration () {
-        fse.outputFileSync(Nuance.CONFIGURATION_PATH as string, JSON.stringify(Nuance.configuration))
+        fse.outputFileSync(Nuanc.CONFIGURATION_PATH as string, JSON.stringify(Nuanc.configuration))
     }
 
     static setConfiguration (key: any, value: string) {
-        if (NuanceConfigurationAllowedKeys.includes(key)) {
+        if (NuancConfigurationAllowedKeys.includes(key)) {
             (this.configuration as any)[key] = value
             consola.success(chalk`Key {bold ${key}} value was setted successfully!`)
         } else {
@@ -175,4 +257,5 @@ export class Nuance {
         }
     }
     
+
 }
