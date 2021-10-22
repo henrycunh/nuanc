@@ -25,8 +25,12 @@ export class Nuanc {
         'local': NuancLocalDriver
     }
     private static storage: NuancBaseDataDriver = new Nuanc.storageDriverMap.local()
-    static useStorage (storageDriver: NuancStorageDriver, options: any) {
-        Nuanc.storage = new Nuanc.storageDriverMap[storageDriver](...options)
+    static useStorage (storageDriver: NuancStorageDriver | NuancBaseDataDriver, options?: any) {
+        if (typeof storageDriver === 'string') {
+            Nuanc.storage = new Nuanc.storageDriverMap[storageDriver](...options)
+        } else {
+            Nuanc.storage = storageDriver
+        }
     }
 
     static async saveSnapshot (snapshot: Snapshot, database: string) {
