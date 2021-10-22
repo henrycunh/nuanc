@@ -1,5 +1,4 @@
 import { Snapshot, PageStatus } from '../@types/index.js'
-import Nuanc from '../index.js'
 import { NuancBaseDataDriver } from './base-driver.js'
 import fs from 'fs'
 import consola from 'consola'
