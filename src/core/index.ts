@@ -75,7 +75,7 @@ export class Nuanc {
     }
 
 
-    static getPageChanges(snapshot: Snapshot, lastSnapshot: Snapshot) {
+    private static getPageChanges(snapshot: Snapshot, lastSnapshot: Snapshot) {
         return DeepDiff.diff(lastSnapshot, snapshot)
     }
 
@@ -96,8 +96,20 @@ export class Nuanc {
         }
     }
     
+    /**
+     * Given a database name, returns a list of page with their status and changes.
+     * @param databaseName The name of the database to get the pages from.
+     * @param options Default Nuanc options.
+     * @returns A list of pages with their status and changed properties.
+     */
     static async getPageStatusList(databaseName: string, options?: NuancOptions): Promise<PageStatus[]> {
         let lastSnapshot = await Nuanc.fetchLastSnapshot(databaseName)
+        if (lastSnapshot === null) {
+            const snapshot = await Nuanc.fetchSnapshot(databaseName, options)
+            await Nuanc.saveSnapshot(snapshot, databaseName)
+            consola.info(`There was no snapshot saved previously.\nCreated snapshot for database ${chalk.bold(databaseName)}`)
+            return []
+        }
         let snapshot = await Nuanc.fetchSnapshot(databaseName, options)
         let pageChangeList = Nuanc.getPageChanges(snapshot, lastSnapshot)
         const { added, removed, currentSnapshotIntersection, lastSnapshotIntersection } = await Nuanc.getAddedOrRemovedPages(snapshot, lastSnapshot)
@@ -126,6 +138,12 @@ export class Nuanc {
         
     }
 
+    /**
+     * Given two snapshots, returns pages that were added and removed.
+     * @param currentSnapshot The latest snapshot.
+     * @param lastSnapshot The previous snapshot.
+     * @returns A list of added and removed pages.
+     */
     static async getAddedOrRemovedPages(currentSnapshot: Snapshot, lastSnapshot: Snapshot) {
         const intersection = currentSnapshot.filter(page => lastSnapshot.some(pageOnLastSnapshot => page.id === pageOnLastSnapshot.id))
         const added = (await Promise.all(
@@ -149,6 +167,12 @@ export class Nuanc {
         return { added, removed, currentSnapshotIntersection, lastSnapshotIntersection }
     }
 
+    /**
+     * Gets the title of a page.
+     * @param page The page to get the title from, can be a page object or a page id.
+     * @param options Default Nuanc options.
+     * @returns The title of the page.
+     */
     static async getPageTitle(page: string | (Page | PageStatus), options?: NuancOptions) {
         if (typeof page !== 'string') {
             for (const propertyName in page.properties) {
@@ -171,6 +195,12 @@ export class Nuanc {
         return null
     }
 
+    /**
+     * Returns as list of pages that are related to the given page.
+     * @param page The page to find related pages for.
+     * @param options Default Nuanc options.
+     * @returns A list of related pages.
+     */
     static async getRelationPropertyPageList(page: Page, options?: NuancOptions): Promise<(Page & { name: string })[]> {
         for (const propertyName in page.properties) {
             const property = page.properties[propertyName]
@@ -187,10 +217,6 @@ export class Nuanc {
             }
         }
         return []
-    }
-
-    private static sortPageList(pageList: Snapshot): Snapshot {
-        return [...pageList].sort((pageA, pageB) => pageA.id > pageB.id ? -1 : 1)
     }
     
     /* Event handling */
