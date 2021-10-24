@@ -1,21 +1,21 @@
 {
   "name": "@nuanc/core",
-  "version": "1.1.0",
+  "version": "1.1.5",
   "description": "A notion utility package focused on tracking changes, it also comes with a CLI!",
-  "exports": "./build/index.js",
-  "types": "build/index.d.ts",
+  "exports": "./dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
   "scripts": {
     "prepare": "ttsc",
     "build": "ttsc",
     "start": "npm run build && node build/bin",
-    "package": "pkg . --targets node14-macos-x64 --output nuance",
-    "publish": "npm publish --access public"
+    "package": "pkg . --targets node14-macos-x64 --output nuance"
   },
   "keywords": [],
   "author": "Henrique Cunha",
   "license": "MIT",
   "bin": {
-    "nuanc": "build/bin.js"
+    "nuanc": "dist/bin.js"
   },
   "husky": {
     "hooks": {

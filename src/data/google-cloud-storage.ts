@@ -33,14 +33,11 @@ export class NuancGoogleCloudStorageDriver implements NuancBaseDataDriver {
         await this.saveFile('last-snapshot.json', snapshot, database.toLowerCase())
     }
     
-    async loadLastSnapshot(database: string): Promise<Snapshot> {
+    async loadLastSnapshot(database: string): Promise<Snapshot | null> {
         const bucket = this.client.bucket(`${this.prefix}-${database.toLowerCase()}`)
-        if (!(await bucket.exists()).pop()) {
-            throw new Error(`You haven't initialized the database snapshot yet, run $ nuanc init "${database}"`)
-        }
         const file = bucket.file('last-snapshot.json')
-        if (!(await file.exists()).pop()) {
-            throw new Error(`You haven't initialized the database snapshot yet, run $ nuanc init "${database}"`)
+        if (!(await bucket.exists()).pop() || !(await file.exists()).pop()) {
+            return null
         }
         const fileContents = (await file.download()).shift()
         if (fileContents) {
