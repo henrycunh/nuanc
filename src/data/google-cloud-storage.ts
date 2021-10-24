@@ -41,7 +41,6 @@ export class NuancGoogleCloudStorageDriver implements NuancBaseDataDriver {
         }
         const fileContents = (await file.download()).shift()
         if (fileContents) {
-            console.log('exists')
             return JSON.parse(fileContents.toString('utf8')) as Snapshot
         } else {
             throw new Error(`Couldn't read file ${bucket}/last-snapshot.json`)

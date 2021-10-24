@@ -1,6 +1,6 @@
 {
   "name": "@nuanc/core",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "A notion utility package focused on tracking changes, it also comes with a CLI!",
   "exports": "./dist/index.js",
   "types": "dist/index.d.ts",
