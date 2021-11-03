@@ -1,22 +1,30 @@
 {
   "name": "@nuanc/core",
-  "version": "1.1.5",
+  "version": "1.1.8",
   "description": "A notion utility package focused on tracking changes, it also comes with a CLI!",
-  "exports": "./dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "bin": {
+    "nuanc": "./bin/index.mjs"
+  },
   "scripts": {
-    "prepare": "ttsc",
-    "build": "ttsc",
-    "start": "npm run build && node build/bin",
+    "build": "unbuild && tsc --declaration --emitDeclarationOnly",
+    "start": "npm run build && node bin/index.mjs",
     "package": "pkg . --targets node14-macos-x64 --output nuance"
   },
   "keywords": [],
   "author": "Henrique Cunha",
   "license": "MIT",
-  "bin": {
-    "nuanc": "dist/bin.js"
-  },
   "husky": {
     "hooks": {
       "pre-commit": "pretty-quick --staged"
@@ -32,8 +40,8 @@
     "prettier": "^2.4.0",
     "pretty-quick": "^3.1.1",
     "ts-node": "^10.2.1",
-    "ttypescript": "^1.5.12",
-    "typescript": "^4.4.3"
+    "typescript": "^4.4.3",
+    "unbuild": "^0.5.11"
   },
   "dependencies": {
     "@google-cloud/storage": "^5.15.3",

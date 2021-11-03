@@ -6,11 +6,12 @@
     "moduleResolution": "node",                          
     "outDir": "dist",         
     "esModuleInterop": true,                             
-    "forceConsistentCasingInFileNames": true,            
-    "plugins": [
-      { "transform": "ts-transformer-keys/transformer" }
-    ],
+    "forceConsistentCasingInFileNames": true,
     "strict": true,                                      
     "skipLibCheck": true                                 
-  }
+  },
+  "exclude": [
+    "build.config.ts",
+    "dist"
+  ]
 }
