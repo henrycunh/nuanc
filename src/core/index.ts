@@ -57,13 +57,14 @@ export class Nuanc {
         return titledDatabaseList
     }
 
-    static async fetchSnapshot(databaseName: string, options?: NuancOptions): Promise<Snapshot> {
+    static async fetchSnapshot(databaseName: string, filter?: any, options?: NuancOptions): Promise<Snapshot> {
         if (!Boolean(databaseName)) {
             throw new Error('No notion database informed.')
         }
         return loading(async () => {
             const [tasksDB] = await Nuanc.fetchDatabaseList(databaseName)
-            const snapshot = await Nuanc.notion.databases.query({ database_id: tasksDB.id })
+
+            const snapshot = await Nuanc.notion.databases.query({ database_id: tasksDB.id, filter })
             return await Promise.all(
                 snapshot.results.map(async (page) => {
                     const pageData = await Nuanc.notion.pages.retrieve({ page_id: page.id })
