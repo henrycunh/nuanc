@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import consola from 'consola'
 import { Command } from 'commander'
 

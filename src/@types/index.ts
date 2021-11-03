@@ -1,7 +1,5 @@
 import { GetDatabaseResponse, GetPageResponse } from "@notionhq/client/build/src/api-endpoints";
 import { keys } from "ts-transformer-keys"
-import { NuancBaseDataDriver } from "../data/base-driver.js";
-import { NuancLocalDriver } from "../data/local.js";
 
 export type Page = GetPageResponse & { name: string }
 export type Database = GetDatabaseResponse
@@ -39,4 +37,4 @@ export type NuancOptions = {
 export type NuancPageEvent = 'added' | 'removed' | 'changed'
 export type NuancPageEventHandler = (event: PageStatus) => Promise<void>
 
-export const NuancConfigurationAllowedKeys = keys<NuancConfiguration>()
+export const NuancConfigurationAllowedKeys = ['default-db']
